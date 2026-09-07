@@ -19,3 +19,13 @@ export function createChatModel(
     ...options,
   })
 }
+
+export function createNoStreamModel(
+  options?: Parameters<typeof createChatModel>[0]
+) {
+  return createChatModel({
+    ...options,
+    disableStreaming: true,
+    tags: ['nostream'],
+  })
+}
