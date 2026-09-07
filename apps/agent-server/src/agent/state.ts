@@ -1,5 +1,6 @@
 import { MessagesValue, StateSchema } from '@langchain/langgraph'
 import z from 'zod'
+import { ClassificationSchema } from './classification.js'
 
 export const State = new StateSchema({
   messages: MessagesValue,
@@ -9,4 +10,5 @@ export const State = new StateSchema({
     material: z.array(z.record(z.string(), z.json())),
     canvas: z.record(z.string(), z.json()),
   }),
+  classification: ClassificationSchema,
 })
