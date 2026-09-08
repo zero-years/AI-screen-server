@@ -11,8 +11,11 @@ export const State = new StateSchema({
     canvas: z.record(z.string(), z.json()),
   }),
   classification: ClassificationSchema,
-  action: z.object({
-    type: z.literal('add_node'),
-    node: z.record(z.string(), z.json()),
-  }),
+  action: z
+    .object({
+      type: z.enum(['add_node', 'update_node']),
+      node: z.record(z.string(), z.json()),
+    })
+    .nullable()
+    .default(null),
 })
