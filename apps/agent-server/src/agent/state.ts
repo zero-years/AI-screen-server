@@ -2,6 +2,8 @@ import { MessagesValue, StateSchema } from '@langchain/langgraph'
 import z from 'zod'
 import { ClassificationSchema } from './classification.js'
 
+export const toolList = ['add_node', 'update_node'] as const
+
 export const State = new StateSchema({
   messages: MessagesValue,
   page: z.record(z.string(), z.json()),
@@ -13,7 +15,7 @@ export const State = new StateSchema({
   classification: ClassificationSchema,
   action: z
     .object({
-      type: z.enum(['add_node', 'update_node']),
+      type: z.enum(toolList),
       node: z.record(z.string(), z.json()),
     })
     .nullable()

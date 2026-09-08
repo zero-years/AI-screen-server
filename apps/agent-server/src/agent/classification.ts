@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { createNoStreamModel } from '../ai/model.js'
 import { SystemMessage } from '@langchain/core/messages'
 import { getLastUserMessage } from '../utils/index.js'
+import { toolList } from './state.js'
 
 export const ClassificationSchema = z.object({
   task: z
@@ -10,7 +11,7 @@ export const ClassificationSchema = z.object({
       '识别用户意图的任务分类，message = 普通问答，page = 创建页面，edit = 修改页面'
     ),
   operation: z
-    .enum(['add_node', 'update_node']) // 当前只完成新增节点
+    .enum(toolList) // 当前只完成新增节点
     .nullable()
     .describe(
       `当前开放的二级分类：
