@@ -1,7 +1,6 @@
 import { AIMessage, SystemMessage } from '@langchain/core/messages'
 import { createNoStreamModel } from '../../ai/model.js'
 import z from 'zod'
-import { getLastUserMessage } from '../../utils/index.js'
 
 /**
  * 获取新增节点的 shcmea
@@ -37,7 +36,7 @@ async function getMaterialSchema(state) {
       可用物料：
       ${JSON.stringify(materials, null, 2)}
     `),
-    getLastUserMessage(state.messages),
+    ...state.messages,
   ])
 
   return materialSchemas.find(m => m.type == res.type)
@@ -49,7 +48,6 @@ async function generateNode(state, materialSchema) {
   const model = createNoStreamModel().withStructuredOutput(
     material.extend({
       id: z.literal(crypto.randomUUID()).describe('节点唯一标识'),
-      responseMessage: z.string().optional().describe('任务执行结果描述'),
     }),
     {
       name: 'material_node',
@@ -64,22 +62,17 @@ async function generateNode(state, materialSchema) {
       必须遵守结构化输出 Schema。
       对于可选属性，如果用户没有明确要求，可以留空。
     `),
-    getLastUserMessage(state.messages),
+    ...state.messages,
   ])
 }
 
 async function updateNode(state, currentNode, materialSchema) {
   const schema = z.fromJSONSchema(materialSchema.configSchema) as z.ZodObject
 
-  const model = createNoStreamModel().withStructuredOutput(
-    schema.extend({
-      responseMessage: z.string().optional().describe('任务执行结果描述'),
-    }),
-    {
-      name: 'material_node_update',
-      method: 'jsonSchema',
-    }
-  )
+  const model = createNoStreamModel().withStructuredOutput(schema, {
+    name: 'material_node_update',
+    method: 'jsonSchema',
+  })
 
   const res = await model.invoke([
     new SystemMessage(`
@@ -96,7 +89,7 @@ async function updateNode(state, currentNode, materialSchema) {
 
       ${JSON.stringify(currentNode, null, 2)}
     `),
-    getLastUserMessage(state.messages),
+    ...state.messages,
   ])
 
   return {
@@ -115,14 +108,13 @@ export async function handleEditTask(state) {
      */
     const schema = await getMaterialSchema(state)
 
-    const { responseMessage, ...node } = await generateNode(state, schema)
+    const node = await generateNode(state, schema)
 
     return {
       action: {
         type: 'add_node',
         node,
       },
-      messages: [new AIMessage(responseMessage || '我已经完成新增节点的需求')],
     }
   } else if (state.classification?.operation == 'update_node') {
     /**
@@ -146,14 +138,9 @@ export async function handleEditTask(state) {
     const schema = state.schema.material.find(m => m.type === currentNode.type)
 
     //@ts-ignore
-    const { responseMessage, ...node } = await updateNode(
-      state,
-      currentNode,
-      schema
-    )
+    const node = await updateNode(state, currentNode, schema)
 
     return {
-      messages: [new AIMessage(responseMessage || '我已经完成修改节点的需求')],
       action: {
         type: 'update_node',
         node,

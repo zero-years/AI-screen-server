@@ -1,8 +1,7 @@
 import { MessagesValue, StateSchema } from '@langchain/langgraph'
 import z from 'zod'
 import { ClassificationSchema } from './classification.js'
-
-export const toolList = ['add_node', 'update_node'] as const
+import { toolList } from './classification.js'
 
 export const State = new StateSchema({
   messages: MessagesValue,

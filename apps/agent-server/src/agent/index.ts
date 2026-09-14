@@ -4,24 +4,26 @@ import {
   handleEditTask,
   handleMessageTask,
   handlePageTask,
-  clearAction,
+  handleEditResult,
 } from './task-nodes/index.js'
 import { classifyTask } from './classification.js'
 
 const builder = new StateGraph(State)
   .addNode('classifyTask', classifyTask)
   .addNode('handleMessageTask', handleMessageTask)
+  .addNode('handleEditResult', handleEditResult)
   .addNode('handlePageTask', handlePageTask)
   .addNode('handleEditTask', handleEditTask)
-  .addNode('clearAction', clearAction)
-  .addEdge(START, 'clearAction')
-  .addEdge('clearAction', 'classifyTask')
+  .addEdge(START, 'classifyTask')
   .addConditionalEdges('classifyTask', state => state.classification.task, {
     message: 'handleMessageTask',
     page: 'handlePageTask',
     edit: 'handleEditTask',
   })
-  .addEdge('clearAction', END)
+  .addEdge('handleMessageTask', END)
+  .addEdge('handlePageTask', END)
+  .addEdge('handleEditTask', 'handleEditResult')
+  .addEdge('handleEditResult', END)
 
 export const graph = builder.compile()
 

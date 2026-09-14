@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { createNoStreamModel } from '../ai/model.js'
 import { SystemMessage } from '@langchain/core/messages'
 import { getLastUserMessage } from '../utils/index.js'
-import { toolList } from './state.js'
+
+export const toolList = ['add_node', 'update_node'] as const
 
 export const ClassificationSchema = z.object({
   task: z
