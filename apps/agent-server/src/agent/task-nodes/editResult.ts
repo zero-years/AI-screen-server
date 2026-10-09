@@ -23,9 +23,9 @@ export async function handleEditResult(state) {
     ...state.messages,
     new HumanMessage(
       `已经完成的动作：
-      ${JSON.stringify(state.action)}`
+      ${JSON.stringify(state.actions)}`
     ),
   ])
 
-  return { messages: [response], action: null }
+  return { messages: [response], actions: [] }
 }

@@ -1,53 +1,15 @@
-import { AIMessage, SystemMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { createNoStreamModel } from '../../ai/model.js'
+import { ADD_NODE, UPDATE_NODE, REMOVE_NODE } from './planEdit.js'
 import z from 'zod'
 
-/**
- * 获取新增节点的 shcmea
- * 1. 用户提示词
- * 2. 所有物料的 schema
- * 3. 给 AI 进行选择
- */
-async function getMaterialSchema(state) {
-  const materialSchemas = state.schema.material
-  const materials = materialSchemas.map(m => {
-    return {
-      type: m.type,
-      name: m.name,
-    }
-  })
-
-  const model = createNoStreamModel().withStructuredOutput(
-    z.object({
-      type: z
-        .enum(materialSchemas.map(schema => schema.type))
-        .describe('节点类型'),
-    }),
-    {
-      name: 'material_schema',
-      method: 'jsonSchema',
-    }
-  )
-
-  const res = await model.invoke([
-    new SystemMessage(`
-      你是一个 AI 大屏设计器的物料选择助手。
-      请根据用户的要求，从下面的可用物料中选择最合适的一个。
-      可用物料：
-      ${JSON.stringify(materials, null, 2)}
-    `),
-    ...state.messages,
-  ])
-
-  return materialSchemas.find(m => m.type == res.type)
-}
-
-async function generateNode(state, materialSchema) {
+async function generateNode(materialSchema, prompt) {
   const material = z.fromJSONSchema(materialSchema.configSchema) as z.ZodObject
 
   const model = createNoStreamModel().withStructuredOutput(
     material.extend({
       id: z.literal(crypto.randomUUID()).describe('节点唯一标识'),
+      type: z.literal(materialSchema.type).describe('节点类型'),
     }),
     {
       name: 'material_node',
@@ -62,11 +24,11 @@ async function generateNode(state, materialSchema) {
       必须遵守结构化输出 Schema。
       对于可选属性，如果用户没有明确要求，可以留空。
     `),
-    ...state.messages,
+    new HumanMessage(prompt),
   ])
 }
 
-async function updateNode(state, currentNode, materialSchema) {
+async function updateNode(currentNode, materialSchema, prompt) {
   const schema = z.fromJSONSchema(materialSchema.configSchema) as z.ZodObject
 
   const model = createNoStreamModel().withStructuredOutput(schema, {
@@ -89,7 +51,7 @@ async function updateNode(state, currentNode, materialSchema) {
 
       ${JSON.stringify(currentNode, null, 2)}
     `),
-    ...state.messages,
+    new HumanMessage(prompt),
   ])
 
   return {
@@ -100,55 +62,45 @@ async function updateNode(state, currentNode, materialSchema) {
 }
 
 export async function handleEditTask(state) {
-  if (state.classification?.operation == 'add_node') {
-    /**
-     * 新增节点
-     * 1. 新增节点的 schema
-     * 2. 根据提示词，结合 schema 生成节点
-     */
-    const schema = await getMaterialSchema(state)
+  const plans = state.editPlan
+  const actions = []
 
-    const node = await generateNode(state, schema)
+  for (const plan of plans) {
+    const { action, id, type, prompt } = plan
+    const schema = state.schema.material.find(m => m.type === type)
 
-    return {
-      action: {
-        type: 'add_node',
+    if (action === ADD_NODE) {
+      // 新增
+      const node = await generateNode(schema, prompt)
+
+      actions.push({
+        type: ADD_NODE,
         node,
-      },
-    }
-  } else if (state.classification?.operation == 'update_node') {
-    /**
-     * 修改节点
-     * 1. 获取当前选中的节点
-     * 2. 获取当前选中节点的 schema
-     * 3. 根据提示词，结合 schema 修改节点
-     */
-    const selectedId = state.selectedNodeIds[0]
-
-    if (!selectedId) {
-      return {
-        messages: [
-          new AIMessage('当前没有选中任何节点，请先选中一个节点再进行修改'),
-        ],
-      }
+      })
     }
 
-    const currentNode = state.page.nodes.find(n => n.id === selectedId)
+    const currentNode = state.page.nodes.find(n => n.id === id)
 
-    const schema = state.schema.material.find(m => m.type === currentNode.type)
+    if (action === UPDATE_NODE) {
+      // 修改
+      const node = await updateNode(currentNode, schema, prompt)
 
-    //@ts-ignore
-    const node = await updateNode(state, currentNode, schema)
-
-    return {
-      action: {
-        type: 'update_node',
+      actions.push({
+        type: UPDATE_NODE,
         node,
-      },
+      })
+    }
+
+    if (action === REMOVE_NODE) {
+      // 删除
+      actions.push({
+        node: currentNode,
+        type: REMOVE_NODE,
+      })
     }
   }
 
   return {
-    messages: [new AIMessage('我已经收到修改大屏设计器的需求')],
+    actions,
   }
 }

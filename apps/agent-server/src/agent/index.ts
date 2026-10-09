@@ -5,6 +5,7 @@ import {
   handleMessageTask,
   handlePageTask,
   handleEditResult,
+  handlePlanEdit,
 } from './task-nodes/index.js'
 import { classifyTask } from './classification.js'
 
@@ -14,11 +15,15 @@ const builder = new StateGraph(State)
   .addNode('handleEditResult', handleEditResult)
   .addNode('handlePageTask', handlePageTask)
   .addNode('handleEditTask', handleEditTask)
+  .addNode('handlePlanEdit', handlePlanEdit)
   .addEdge(START, 'classifyTask')
   .addConditionalEdges('classifyTask', state => state.classification.task, {
     message: 'handleMessageTask',
     page: 'handlePageTask',
-    edit: 'handleEditTask',
+    edit: 'handlePlanEdit',
+  })
+  .addConditionalEdges('handlePlanEdit', state => {
+    return state.editPlan.length > 0 ? 'handleEditTask' : END
   })
   .addEdge('handleMessageTask', END)
   .addEdge('handlePageTask', END)

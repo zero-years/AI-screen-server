@@ -1,7 +1,7 @@
 import { MessagesValue, StateSchema } from '@langchain/langgraph'
 import z from 'zod'
 import { ClassificationSchema } from './classification.js'
-import { toolList } from './classification.js'
+import { ActionSchemaType, PlanEditSchema } from './task-nodes/planEdit.js'
 
 export const State = new StateSchema({
   messages: MessagesValue,
@@ -12,11 +12,13 @@ export const State = new StateSchema({
     canvas: z.record(z.string(), z.json()),
   }),
   classification: ClassificationSchema,
-  action: z
-    .object({
-      type: z.enum(toolList),
-      node: z.record(z.string(), z.json()),
-    })
-    .nullable()
-    .default(null),
+  editPlan: z.array(PlanEditSchema),
+  actions: z
+    .array(
+      z.object({
+        type: ActionSchemaType,
+        node: z.record(z.string(), z.json()),
+      })
+    )
+    .default([]),
 })
