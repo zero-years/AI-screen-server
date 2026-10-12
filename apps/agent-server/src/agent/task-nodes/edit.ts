@@ -1,40 +1,49 @@
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { createNoStreamModel } from '../../ai/model.js'
 import { ADD_NODE, UPDATE_NODE, REMOVE_NODE } from './planEdit.js'
-import z from 'zod'
 
 async function generateNode(materialSchema, prompt) {
-  const material = z.fromJSONSchema(materialSchema.configSchema) as z.ZodObject
-
+  /**
+   * material.extend({
+   *  id: z.literal(crypto.randomUUID()).describe('节点唯一标识'),
+   *  type: z.literal(materialSchema.type).describe('节点类型'),
+   * }),
+   */
   const model = createNoStreamModel().withStructuredOutput(
-    material.extend({
-      id: z.literal(crypto.randomUUID()).describe('节点唯一标识'),
-      type: z.literal(materialSchema.type).describe('节点类型'),
-    }),
+    materialSchema.configSchema,
+
     {
       name: 'material_node',
       method: 'jsonSchema',
     }
   )
 
-  return await model.invoke([
+  const node = await model.invoke([
     new SystemMessage(`
       你是一个 AI 大屏设计器的节点生成助手。
       请根据用户要求生成一个完整的 ${materialSchema.name} 节点。
       必须遵守结构化输出 Schema。
       对于可选属性，如果用户没有明确要求，可以留空。
+      如果是图表物料，使用的是 ECharts，props.option 必须使用 ECharts 的配置字段完成。
     `),
     new HumanMessage(prompt),
   ])
+
+  return {
+    ...node,
+    id: crypto.randomUUID(),
+    type: materialSchema.type,
+  }
 }
 
 async function updateNode(currentNode, materialSchema, prompt) {
-  const schema = z.fromJSONSchema(materialSchema.configSchema) as z.ZodObject
-
-  const model = createNoStreamModel().withStructuredOutput(schema, {
-    name: 'material_node_update',
-    method: 'jsonSchema',
-  })
+  const model = createNoStreamModel().withStructuredOutput(
+    materialSchema.configSchema,
+    {
+      name: 'material_node_update',
+      method: 'jsonSchema',
+    }
+  )
 
   const res = await model.invoke([
     new SystemMessage(`
@@ -42,6 +51,7 @@ async function updateNode(currentNode, materialSchema, prompt) {
       当前选中的节点是 ${materialSchema.name}，请根据用户的要求修改该节点。
       必须遵守结构化输出 Schema。
       对于可选属性，如果用户没有明确要求，可以留空。
+      如果是图表物料，使用的是 ECharts，props.option 必须使用 ECharts 的配置字段完成。 
 
       - 规则:
         1. 只能修改当前节点的 props、layout、style 等属性。
