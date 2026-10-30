@@ -1,6 +1,7 @@
 // src/ai/model.ts
-import { ChatOpenAI } from '@langchain/openai'
+import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai'
 
+// 流式模型
 export function createChatModel(
   options?: ConstructorParameters<typeof ChatOpenAI>[0]
 ) {
@@ -11,6 +12,7 @@ export function createChatModel(
     modelKwargs: {
       // 注意，咱自己做的事儿，别让它看见，不往里面存
       store: false,
+      enable_thinking: false,
     },
     configuration: {
       baseURL: process.env.AI_BASE_URL,
@@ -20,6 +22,7 @@ export function createChatModel(
   })
 }
 
+// 非流式模型
 export function createNoStreamModel(
   options?: Parameters<typeof createChatModel>[0]
 ) {
@@ -27,5 +30,19 @@ export function createNoStreamModel(
     ...options,
     disableStreaming: true,
     tags: ['nostream'],
+  })
+}
+
+// 向量模型
+export function createEmbeddingModel() {
+  return new OpenAIEmbeddings({
+    model: process.env.AI_EMBEDDING_MODEL,
+    apiKey: process.env.AI_API_KEY,
+    configuration: {
+      baseURL: process.env.AI_BASE_URL,
+    },
+    batchSize: 10,
+    maxConcurrency: 1,
+    maxRetries: 0,
   })
 }

@@ -34,7 +34,6 @@ module.exports = [
     },
     plugins: ['import', '@typescript-eslint', 'no-instanceof'],
     rules: {
-      'no-process-env': 2,
       'no-instanceof/no-instanceof': 2,
       '@typescript-eslint/explicit-module-boundary-types': 0,
       '@typescript-eslint/no-empty-function': 0,
@@ -69,6 +68,8 @@ module.exports = [
       'consistent-return': 0,
       'no-else-return': 0,
       'new-cap': ['error', { properties: false, capIsNew: false }],
+      '@typescript-eslint/no-explicit-any': 'off',
+      'node/no-process-env': 'off',
     },
   }),
 ]
