@@ -1,13 +1,12 @@
 import { z } from 'zod'
 import { createNoStreamModel } from '../ai/model.js'
 import { SystemMessage } from '@langchain/core/messages'
-import { getLastUserMessage } from '../utils/index.js'
 
 export const ClassificationSchema = z.object({
   task: z
     .enum(['message', 'page', 'edit'])
     .describe(
-      '识别用户意图的任务分类，message = 普通问答，page = 创建页面，edit = 修改页面'
+      '识别用户意图的任务分类，message = 普通问答，page = 创建页面，edit = 修改页面，包括创建数据源，新增节点、修改节点或删除节点'
     ),
 })
 
@@ -28,7 +27,7 @@ export async function classifyTask(state) {
     一级任务分类：
     - message: 普通问答，用户只是想问一些问题，或者获取一些信息。
     - page: 创建完整页面，用户想用一句话或者一段综合描述生成一个大屏。
-    - edit: 修改当前页面，包括新增节点、修改节点或者删除节点。
+    - edit: 修改当前页面/数据，包括创建数据，修改数据、新增节点、修改节点或删除节点
 
     规则：
     - 用户明确要求新增一个节点时，operation 返回 add_node。

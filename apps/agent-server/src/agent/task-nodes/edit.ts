@@ -1,8 +1,15 @@
 import { HumanMessage } from '@langchain/core/messages'
 import { createNoStreamModel } from '../../ai/model.js'
-import { ADD_NODE, UPDATE_NODE, REMOVE_NODE } from './planEdit.js'
+import {
+  ADD_NODE,
+  UPDATE_NODE,
+  REMOVE_NODE,
+  ADD_DATA_SOURCE,
+  UPDATE_DATA_SOURCE,
+} from './planEdit.js'
 import { createAgent, toolStrategy } from 'langchain'
 import { searchEChartsOptions } from '../../rag/tools.ts'
+import { generateDataSource, updateDataSource } from './dataSource.ts'
 
 async function generateNode(materialSchema, prompt) {
   const agent = createAgent({
@@ -79,6 +86,7 @@ export async function handleEditTask(state) {
   for (const plan of plans) {
     const { action, id, type, prompt } = plan
     const schema = state.schema.material.find(m => m.type === type)
+    const currentDataSource = state.dataSources.find(ds => ds.id === id)
 
     if (action === ADD_NODE) {
       // 新增
@@ -107,6 +115,30 @@ export async function handleEditTask(state) {
       actions.push({
         node: currentNode,
         type: REMOVE_NODE,
+      })
+    }
+
+    if (action === ADD_DATA_SOURCE) {
+      // 新增数据源
+      const dataSource = await generateDataSource(prompt, state)
+
+      actions.push({
+        node: dataSource,
+        type: ADD_DATA_SOURCE,
+      })
+    }
+
+    if (action === UPDATE_DATA_SOURCE) {
+      // 修改数据源
+      const dataSource = await updateDataSource(
+        prompt,
+        currentDataSource,
+        state
+      )
+
+      actions.push({
+        node: dataSource,
+        type: UPDATE_DATA_SOURCE,
       })
     }
   }
