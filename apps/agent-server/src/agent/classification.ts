@@ -40,5 +40,6 @@ export async function classifyTask(state) {
   return {
     classification,
     action: null,
+    editPlan: [],
   }
 }

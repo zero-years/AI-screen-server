@@ -1,7 +1,8 @@
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { createNoStreamModel } from '../../ai/model.js'
+import { ADD_DATA_SOURCE, UPDATE_DATA_SOURCE } from './planEdit.ts'
 
-export async function generateDataSource(prompt: string, state) {
+export async function generateDataSource(prompt: string, state, id: string) {
   const dataSourceJsonSchema = state.schema.dataSource
   const model = createNoStreamModel().withStructuredOutput(
     dataSourceJsonSchema,
@@ -42,7 +43,7 @@ export async function generateDataSource(prompt: string, state) {
     new HumanMessage(prompt),
   ])
 
-  return { ...data, id: crypto.randomUUID() }
+  return { ...data, id }
 }
 
 export async function updateDataSource(
@@ -80,5 +81,35 @@ export async function updateDataSource(
   return {
     ...data,
     id: currentDataSource.id,
+  }
+}
+
+export async function handleDataSourceTask(state) {
+  const index = state.currentTaskIndex
+  const task = state.editPlan[index]
+
+  const { action, id, prompt } = task
+
+  let node = null
+  if (action === ADD_DATA_SOURCE) {
+    // 创建数据源
+    node = await generateDataSource(prompt, state, id)
+  }
+
+  if (action === UPDATE_DATA_SOURCE) {
+    // 更新数据源
+    const currentDataSource = state.dataSources.find(ds => ds.id === id)
+
+    node = await updateDataSource(prompt, currentDataSource, state)
+  }
+
+  const _actionTask = {
+    type: action,
+    node,
+  }
+  return {
+    taskResult: [...state.taskResults, _actionTask],
+    actions: [_actionTask],
+    currentTaskIndex: index + 1,
   }
 }

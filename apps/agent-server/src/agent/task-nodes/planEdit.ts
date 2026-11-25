@@ -32,7 +32,7 @@ export const PlanEditSchema = z.object({
     .string()
     .nullable()
     .describe(
-      '要操作的节点的唯一标识，比如用户要修改，就是要修改节点/数据源的 id,删除就是删除节点/数据源的 id，新增节点/数据源就是 null'
+      '要操作的节点的唯一标识，比如用户要修改，就是要修改节点/数据源的 id,删除就是删除节点/数据源的 id，新增节点的时候就是 null'
     ),
   type: z
     .string()
@@ -66,15 +66,50 @@ export async function handlePlanEdit(state) {
     }
   })
 
+  const materialTypeSchema = z
+    .enum(materials.map(item => item.type))
+    .describe('节点的类型，必须是可用物料中的类型')
+
+  const taskPromptSchema = z
+    .string()
+    .describe('传给节点生成或修改模型的提示词，包括内容、样式和布局要求等。')
+
+  const modelPlanEditSchema = z.discriminatedUnion('action', [
+    z.object({
+      action: z.literal(ADD_NODE),
+      id: z.null(),
+      type: materialTypeSchema,
+      prompt: taskPromptSchema,
+    }),
+    z.object({
+      action: z.literal(UPDATE_NODE),
+      id: z.string().describe('要修改的节点的 ID'),
+      type: materialTypeSchema,
+      prompt: taskPromptSchema,
+    }),
+    z.object({
+      action: z.literal(REMOVE_NODE),
+      id: z.string().describe('要删除的节点的 ID'),
+      type: materialTypeSchema,
+      prompt: taskPromptSchema,
+    }),
+    z.object({
+      action: z.literal(ADD_DATA_SOURCE),
+      id: z.uuid().describe('为新数据源生成的 UUID'),
+      type: z.null(),
+      prompt: taskPromptSchema,
+    }),
+    z.object({
+      action: z.literal(UPDATE_DATA_SOURCE),
+      id: z.string().describe('要修改的数据源的 ID'),
+      type: z.null(),
+      prompt: taskPromptSchema,
+    }),
+  ])
+
   const model = createNoStreamModel().withStructuredOutput(
     z.object({
-      editPlan: z.array(
-        PlanEditSchema.extend({
-          type: z
-            .enum(materials.map(item => item.type))
-            .describe('节点的类型，一定是可用物料中的类型'),
-        })
-      ),
+      editPlan: z.array(modelPlanEditSchema),
       message: z
         .string()
         .nullable()
@@ -98,7 +133,7 @@ export async function handlePlanEdit(state) {
       - 每项 prompt 必须能独立说明该节点的内容、样式和布局要求。
 
       数据源规则：
-      - 用户要创建、添加、准备一份静态数据或 API 数据源时使用 add_data_source，id 和 type 为 null。
+      - 用户要创建、添加、准备一份静态数据或 API 数据源时使用 add_data_source，type 为 null。
       - 用户要修改已有数据源的名称、数据或 API 配置时使用 update_data_source；从已有数据源中复制真实 id，type 为 null。
       - 用户要把已有数据源绑定、关联或应用到图表节点时使用 update_node，不要使用 update_data_source，也不要创建新的数据源。
       - 绑定数据源时，必须从已有节点复制目标节点的真实 id 和 type，并在 prompt 中写明数据源的真实 id、name 和 dataDescription。
@@ -110,6 +145,11 @@ export async function handlePlanEdit(state) {
       - 不要把数据源操作理解为节点操作；只有用户明确要求图表、文本、指标等画布物料时才使用节点操作。
       - 用户不需要使用固定格式，也不需要主动说明 JSON、字段名或数据行。
       - prompt 必须明确这是 static 还是 api 数据源；修改时说明具体要改的内容，不要要求重新创建数据源，也不要改变数据源类型。
+      - 创建数据源时，必须为 id 生成合法 UUID。
+      - 数据源任务必须排在所有依赖它的节点任务之前。
+      - 节点任务必须复制对应数据源的 UUID。
+      - 节点任务必须要求把 UUID 写入节点 dataId。
+      - 同一数据源供多个节点使用时，多个节点任务复制同一个 UUID。
 
       静态数据源规则：
       - 从自然语言中的业务对象、分类、指标和数值归纳出语义清楚且稳定的字段名。
@@ -153,10 +193,15 @@ export async function handlePlanEdit(state) {
       messages: [message],
       editPlan: [],
       actions: [],
+      currentTaskIndex: 0,
+      taskResults: [],
     }
   }
 
   return {
     editPlan: res.editPlan,
+    currentTaskIndex: 0,
+    taskResults: [],
+    actions: [],
   }
 }
